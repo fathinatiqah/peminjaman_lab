@@ -125,7 +125,7 @@ public class Kategori {
     // ==================================================================
     public static boolean delete(int idKategori) {
 
-        String sql = "DELETE FROM kategori WHERE id_kategori = ?";
+        String sql = "DELETE FROM kategori";
 
         try (Connection conn = DBHelper.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
