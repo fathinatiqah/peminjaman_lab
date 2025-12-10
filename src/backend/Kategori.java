@@ -4,12 +4,13 @@ import java.sql.*;
 import java.util.ArrayList;
 
 public class Kategori {
-    
+
     private int idKategori;
     private String namaKategori;
 
     // ===== CONSTRUCTOR =====
-    public Kategori() {}
+    public Kategori() {
+    }
 
     public Kategori(String namaKategori) {
         this.namaKategori = namaKategori;
@@ -25,12 +26,11 @@ public class Kategori {
     public static ArrayList<Kategori> getAll(String keyword) {
         ArrayList<Kategori> listKategori = new ArrayList<>();
 
-        String sql = "SELECT * FROM kategori WHERE nama_kategori LIKE ?";
+        String sql = "SELECT * FROM kategori WHERE nama_kategori LIKE CONCAT('%', ?, '%')";
 
-        try (Connection conn = DBHelper.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
-            ps.setString(1, "%" + keyword + "%");
+        try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, keyword);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -55,9 +55,8 @@ public class Kategori {
         Kategori kat = null;
         String sql = "SELECT * FROM kategori WHERE id_kategori = ?";
 
-        try (Connection conn = DBHelper.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
+        try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, id);
 
             try (ResultSet rs = ps.executeQuery()) {
@@ -85,8 +84,7 @@ public class Kategori {
 
             String sql = "INSERT INTO kategori (nama_kategori) VALUES (?)";
 
-            try (Connection conn = DBHelper.getConnection();
-                 PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
                 ps.setString(1, this.namaKategori);
                 ps.executeUpdate();
@@ -101,15 +99,13 @@ public class Kategori {
                 e.printStackTrace();
             }
 
-        } 
-        // UPDATE
+        } // UPDATE
         else {
 
             String sql = "UPDATE kategori SET nama_kategori = ? WHERE id_kategori = ?";
 
-            try (Connection conn = DBHelper.getConnection();
-                 PreparedStatement ps = conn.prepareStatement(sql)) {
-                
+            try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
                 ps.setString(1, this.namaKategori);
                 ps.setInt(2, this.idKategori);
                 ps.executeUpdate();
@@ -125,20 +121,22 @@ public class Kategori {
     // ==================================================================
     public static boolean delete(int idKategori) {
 
-        String sql = "DELETE FROM kategori";
+        String sql = "DELETE FROM kategori WHERE id_kategori = ?";
 
-        try (Connection conn = DBHelper.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
+        try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, idKategori);
-            ps.executeUpdate();
-            return true;
+
+            // Cek jumlah baris yang terpengaruh
+            int affectedRows = ps.executeUpdate();
+
+            // Jika affectedRows > 0, berarti ada data yang dihapus
+            return affectedRows > 0;
 
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
+            return false; // Return false jika terjadi Exception (misal karena ada Foreign Key Constraint)
         }
-
     }
 
     // ==================================================================
@@ -158,5 +156,10 @@ public class Kategori {
 
     public void setNamaKategori(String namaKategori) {
         this.namaKategori = namaKategori;
+    }
+    
+    @Override
+    public String toString() {
+    return this.namaKategori;
     }
 }
