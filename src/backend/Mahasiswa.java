@@ -207,4 +207,9 @@ public class Mahasiswa {
     public void setNoHp(String noHp) {
         this.noHp = noHp;
     }
+    
+    @Override
+    public String toString() {
+        return this.nama;
+    }
 }

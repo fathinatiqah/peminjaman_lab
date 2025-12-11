@@ -6,9 +6,10 @@ package backend;
  */
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Date;
+import java.sql.Date;
 
 public class Peminjaman {
+
     private int idPeminjaman;
     private Mahasiswa mahasiswa; // Foreign Key ke tabel mahasiswa
     private Date tanggalPinjam;
@@ -30,86 +31,101 @@ public class Peminjaman {
     // ==================================================================
     //                         GET ALL
     // ==================================================================
-    // Helper method untuk mengisi objek Peminjaman dari ResultSet
-    private static Peminjaman populatePeminjaman(ResultSet rs) throws SQLException {
-        Peminjaman p = new Peminjaman();
-        p.setIdPeminjaman(rs.getInt("id_peminjaman"));
-        
-        // Ambil data Mahasiswa (FK)
-        int idMahasiswa = rs.getInt("id_mahasiswa");
-        // Anda perlu method getById(int) di kelas Mahasiswa untuk ini
-        p.setMahasiswa(Mahasiswa.getById(idMahasiswa)); 
-        
-        p.setTanggalPinjam(rs.getDate("tanggal_pinjam"));
-        p.setTanggalKembali(rs.getDate("tanggal_kembali"));
-        p.setStatus(rs.getString("status"));
-        return p;
-    }
-    
     public static ArrayList<Peminjaman> getAll() {
         return getAll("");
     }
 
     public static ArrayList<Peminjaman> getAll(String keyword) {
-        ArrayList<Peminjaman> listPeminjaman = new ArrayList<>();
-        // Query untuk mencari berdasarkan ID Peminjaman atau NIM Mahasiswa
-        String sql = "SELECT p.* FROM peminjaman p JOIN mahasiswa m ON p.id_mahasiswa = m.id_mahasiswa WHERE p.id_peminjaman LIKE CONCAT('%', ?, '%') OR m.nim LIKE CONCAT('%', ?, '%') ORDER BY p.tanggal_pinjam DESC";
+    ArrayList<Peminjaman> listPeminjaman = new ArrayList<>();
 
-        try (Connection conn = DBHelper.getConnection(); 
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+    // Perhatikan bagian id_peminjaman (sesuaikan dengan database Anda)
+    String sql = "SELECT p.id_peminjaman, p.tanggal_pinjam, p.tanggal_kembali, p.status, " // Pastikan nama kolom benar
+               + "m.id_mahasiswa, m.nama AS nama_mahasiswa " 
+               + "FROM peminjaman p "
+               + "LEFT JOIN mahasiswa m ON p.id_mahasiswa = m.id_mahasiswa "
+               + "WHERE m.nama LIKE CONCAT('%', ?, '%') " 
+               + "OR p.id_peminjaman LIKE CONCAT('%', ?, '%')";
 
-            ps.setString(1, keyword);
-            ps.setString(2, keyword);
+    try (Connection conn = DBHelper.getConnection(); 
+         PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    listPeminjaman.add(populatePeminjaman(rs));
-                }
+        ps.setString(1, keyword); 
+        ps.setString(2, keyword); 
+
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Peminjaman p = new Peminjaman();
+                
+                Mahasiswa mhs = new Mahasiswa();
+                mhs.setIdMahasiswa(rs.getInt("id_mahasiswa")); // Sesuaikan nama kolom RS
+                mhs.setNama(rs.getString("nama_mahasiswa"));
+                p.setMahasiswa(mhs);
+
+                // Ambil data menggunakan nama kolom yang ada di database
+                p.setIdPeminjaman(rs.getInt("id_peminjaman")); 
+                p.setTanggalPinjam(rs.getDate("tanggal_pinjam")); 
+                p.setTanggalKembali(rs.getDate("tanggal_kembali"));
+                p.setStatus(rs.getString("status"));
+
+                listPeminjaman.add(p);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
-        return listPeminjaman;
+    } catch (Exception e) {
+        e.printStackTrace();
     }
+    return listPeminjaman;
+}
 
-    // ==================================================================
-    //                         GET BY ID
-    // ==================================================================
+    // ================================
+    //           GET BY ID
+    // ================================
     public static Peminjaman getById(int id) {
-        Peminjaman p = null;
+        Peminjaman peminjaman = null;
+
         String sql = "SELECT * FROM peminjaman WHERE id_peminjaman = ?";
 
-        try (Connection conn = DBHelper.getConnection(); 
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, id);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    p = populatePeminjaman(rs);
+                    peminjaman = new Peminjaman();
+
+                    peminjaman.setIdPeminjaman(rs.getInt("id_peminjaman"));
+                    peminjaman.setTanggalPinjam(rs.getDate("tanggal_pinjam"));
+                    peminjaman.setTanggalKembali(rs.getDate("tanggal_kembali"));
+                    peminjaman.setStatus(rs.getString("status"));
+
+                    // Foreign Key Mahasiswa
+                    int idMahasiswa = rs.getInt("id_mahasiswa");
+                    Mahasiswa mhs = Mahasiswa.getById(idMahasiswa);
+                    peminjaman.setMahasiswa(mhs);
                 }
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return p;
+
+        return peminjaman;
     }
 
-    // ==================================================================
-    //                         INSERT / UPDATE
-    // ==================================================================
+    // ================================
+    //        SAVE (Insert/Update)
+    // ================================
     public void save() {
+        // INSERT
+        if (this.idPeminjaman == 0) {
 
-        if (this.idPeminjaman == 0) { // INSERT
+            String sql = "INSERT INTO peminjaman (id_mahasiswa, tanggal_pinjam, tanggal_kembali, status) "
+                    + "VALUES (?, ?, ?, ?)";
 
-            String sql = "INSERT INTO peminjaman (id_mahasiswa, tanggal_pinjam, tanggal_kembali, status) VALUES (?, ?, ?, ?)";
-
-            try (Connection conn = DBHelper.getConnection();
-                 PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
                 ps.setInt(1, this.mahasiswa.getIdMahasiswa());
-                ps.setDate(2, new java.sql.Date(this.tanggalPinjam.getTime()));
-                ps.setDate(3, new java.sql.Date(this.tanggalKembali.getTime()));
+                ps.setDate(2, this.tanggalPinjam);
+                ps.setDate(3, this.tanggalKembali);
                 ps.setString(4, this.status);
                 ps.executeUpdate();
 
@@ -118,22 +134,25 @@ public class Peminjaman {
                         this.idPeminjaman = rs.getInt(1);
                     }
                 }
+
             } catch (SQLException e) {
                 e.printStackTrace();
             }
 
-        } else { // UPDATE
+        } else {
+            // UPDATE
 
-            String sql = "UPDATE peminjaman SET id_mahasiswa = ?, tanggal_pinjam = ?, tanggal_kembali = ?, status = ? WHERE id_peminjaman = ?";
+            String sql = "UPDATE peminjaman SET id_mahasiswa = ?, tanggal_pinjam = ?, "
+                    + "tanggal_kembali = ?, status = ? WHERE id_peminjaman = ?";
 
-            try (Connection conn = DBHelper.getConnection(); 
-                 PreparedStatement ps = conn.prepareStatement(sql)) {
+            try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
                 ps.setInt(1, this.mahasiswa.getIdMahasiswa());
-                ps.setDate(2, new java.sql.Date(this.tanggalPinjam.getTime()));
-                ps.setDate(3, new java.sql.Date(this.tanggalKembali.getTime()));
+                ps.setDate(2, this.tanggalPinjam);
+                ps.setDate(3, this.tanggalKembali);
                 ps.setString(4, this.status);
                 ps.setInt(5, this.idPeminjaman);
+
                 ps.executeUpdate();
 
             } catch (SQLException e) {
@@ -142,28 +161,29 @@ public class Peminjaman {
         }
     }
 
-    // ==================================================================
-    //                         DELETE
-    // ==================================================================
+    // ================================
+    //             DELETE
+    // ================================
     public static boolean delete(int idPeminjaman) {
+
         String sql = "DELETE FROM peminjaman WHERE id_peminjaman = ?";
 
-        try (Connection conn = DBHelper.getConnection(); 
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DBHelper.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, idPeminjaman);
-            int affectedRows = ps.executeUpdate();
-            return affectedRows > 0;
+
+            int rows = ps.executeUpdate();
+            return rows > 0;
 
         } catch (SQLException e) {
             e.printStackTrace();
-            return false; // Gagal (Pasti karena Foreign Key ke detail_peminjaman)
+            return false;
         }
     }
 
-    // ==================================================================
-    //                      GETTER & SETTER
-    // ==================================================================
+    // ================================
+    //        GETTER & SETTER
+    // ================================
     public int getIdPeminjaman() {
         return idPeminjaman;
     }
